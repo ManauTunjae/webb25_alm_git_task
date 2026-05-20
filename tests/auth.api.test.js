@@ -1,7 +1,9 @@
 const request = require('supertest')
 const app = require('../src/app')
 const User = require('../src/models/User')
+const Mail = require('../src/models/Mail')
 const { connectDb, disconnectDb } = require('./helpers/db')
+
 
 describe('Auth API', () => {
   beforeAll(async () => {
@@ -14,6 +16,7 @@ describe('Auth API', () => {
 
   beforeEach(async () => {
     await User.deleteMany({ email: 'auth-api@example.com' })
+    await Mail.deleteMany({ user: { $in: (await User.find({ email: 'auth-api@example.com' })).map(u => u._id) } })
   })
 
   it('registers and returns a token without exposing the password', async () => {
@@ -26,6 +29,13 @@ describe('Auth API', () => {
     expect(res.body.token).toBeTruthy()
     expect(res.body.user.email).toBe('auth-api@example.com')
     expect(res.body.user.password).toBeUndefined()
+
+    const userId = res.body.user.id;
+
+    const mail = await Mail.findOne({ user: userId })
+
+    expect(mail).toBeTruthy()
+    expect(mail.status).toBe('welcome')
   })
 
   it('returns a predictable error for duplicate registration', async () => {
